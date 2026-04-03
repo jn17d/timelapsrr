@@ -1,22 +1,22 @@
 # Timelapse Maker
 
-A modern, user-friendly GUI application for creating timelapse videos from image sequences. Built with Python and CustomTkinter, featuring hardware acceleration, corrupt file handling, and smart image sorting.
+A modern GUI application for creating timelapse videos from image sequences. Built with Python and CustomTkinter, featuring hardware acceleration, corrupt file handling, and configurable image sorting.
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 
 ## ✨ Features
 
-- 🖼️ **Smart Image Sorting** - Multiple sorting methods including EXIF-based chronological ordering
+- 🖼️ **Configurable Image Sorting** - Multiple sorting methods including EXIF-based chronological ordering
 - 🚀 **Hardware Acceleration** - Auto-detects NVIDIA NVENC, Intel Quick Sync, AMD VCE, and VideoToolbox (macOS)
-- 🛡️ **Corrupt File Handling** - Gracefully skips damaged or invalid images without crashing
-- ⏱️ **Time Filtering** - Filter images by time of day (useful for excluding nighttime shots)
-- 🎨 **Modern Dark UI** - Clean, intuitive CustomTkinter interface
+- 🛡️ **Corrupt File Handling** - Gracefully skips damaged or invalid images
+- ⏱️ **Time Filtering** - Filter images by time of day (great for excluding nighttime shots)
+- 🎨 **Modern UI** - Clean, intuitive CustomTkinter GUI
 - 📊 **Resolution Presets** - Choose from Actual, 4K, 1440p, 1080p, 720p, or 480p
 - 🎚️ **Quality Control** - Adjustable CRF (Constant Rate Factor) for video quality
-- ⚡ **Adjustable FPS** - Control playback speed (1-120 FPS)
+- ⚡ **Adjustable Speed** - Control timelapse speeds (1-120 FPS)
 - 💾 **Settings Persistence** - Automatically saves your preferences
-- 📝 **Detailed Logging** - Real-time status updates with colored output
+- 📝 **Detailed Logging** - Real-time status reporting
 
 ## 📋 Requirements
 
@@ -168,9 +168,6 @@ This file stores:
 - Time filter settings
 
 ## 🎯 Use Cases
-
-### Home Assistant Snapshots
-Perfect for creating timelapses from Home Assistant camera snapshots. Simply point to your snapshot folder and let the tool handle the rest - it will automatically skip failed snapshots and sort by date/time.
 
 ### Security Camera Footage
 Create timelapses from periodic security camera snapshots, filtering to show only daytime hours.
