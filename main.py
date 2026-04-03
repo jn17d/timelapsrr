@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Timelapse Maker GUI - A user-friendly interface for creating timelapse videos.
+timelapsrr GUI - A user-friendly interface for creating timelapse videos.
 Handles corrupt files gracefully and supports FPS and resolution customization.
 Features: Drag & Drop, Time Filtering, Hardware Acceleration
 Built with CustomTkinter for modern cross-platform GUI.
@@ -99,8 +99,8 @@ class TimelapseGUI(ctk.CTk):
         super().__init__()
         
         # Window setup
-        self.title("Timelapse Maker")
-        self.geometry("1200x700")
+        self.title("timelapsrr")
+        self.geometry("900x800")
         
         # Set theme
         ctk.set_appearance_mode("dark")
@@ -141,7 +141,7 @@ class TimelapseGUI(ctk.CTk):
             self.log_status(f"✓ Hardware acceleration available: {', '.join(available_hw)}")
         else:
             self.log_status("ℹ️  No hardware acceleration detected. Using software encoding.")
-        self.log_status("Timelapse Maker ready.\nSelect an input folder to begin.")
+        self.log_status("timelapsrr ready.\nSelect an input folder to begin.")
     
     def create_ui(self):
         """Create all UI widgets."""
@@ -153,8 +153,8 @@ class TimelapseGUI(ctk.CTk):
         left_frame = ctk.CTkFrame(main_container)
         left_frame.pack(side="left", fill="both", expand=False, padx=(0, 10))
         
-        # Scrollable frame for controls
-        self.main_frame = ctk.CTkScrollableFrame(left_frame, width=400)
+        # Regular frame for controls (removed scroll bar)
+        self.main_frame = ctk.CTkFrame(left_frame)
         self.main_frame.pack(fill="both", expand=True)
         
         # Input folder section
@@ -273,15 +273,19 @@ class TimelapseGUI(ctk.CTk):
         hw_hint = ctk.CTkLabel(hw_row, text="(Auto-detected)", font=("Roboto", 10), text_color="gray")
         hw_hint.pack(side="left")
         
-        # Sort method section
-        sort_label = ctk.CTkLabel(self.main_frame, text="Sort Method", font=("Roboto Medium", 14))
-        sort_label.pack(anchor="w", pady=(15, 5))
+        # Combined Sort Method and Time Filter section (side-by-side)
+        sort_time_container = ctk.CTkFrame(self.main_frame)
+        sort_time_container.pack(fill="x", pady=(10, 0))
         
-        sort_row = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        sort_row.pack(fill="x", pady=5)
+        # Left side - Sort Method
+        sort_subframe = ctk.CTkFrame(sort_time_container, fg_color="transparent")
+        sort_subframe.pack(side="left", fill="both", expand=True, padx=10, pady=5)
+        
+        sort_label = ctk.CTkLabel(sort_subframe, text="Sort Method", font=("Roboto Medium", 14))
+        sort_label.pack(anchor="w", pady=(0, 5))
         
         self.sort_combo = ctk.CTkComboBox(
-            sort_row,
+            sort_subframe,
             values=[
                 'EXIF → Modified → Filename',
                 'EXIF → Created → Filename',
@@ -290,51 +294,60 @@ class TimelapseGUI(ctk.CTk):
                 'Filename Only'
             ],
             variable=self.sort_method,
-            width=250,
+            width=200,
             command=self.save_settings
         )
-        self.sort_combo.pack(side="left", padx=(0, 10))
+        self.sort_combo.pack(fill="x", pady=2)
         
-        sort_hint = ctk.CTkLabel(sort_row, text="(How to order images)", font=("Roboto", 10), text_color="gray")
-        sort_hint.pack(side="left")
+        sort_hint = ctk.CTkLabel(sort_subframe, text="(How to order images)", font=("Roboto", 10), text_color="gray")
+        sort_hint.pack(anchor="w")
         
-        # Time filter section
-        time_frame = ctk.CTkFrame(self.main_frame)
-        time_frame.pack(fill="x", pady=(10, 10))
+        # Vertical separator
+        separator = ctk.CTkFrame(sort_time_container, fg_color="gray30", width=2)
+        separator.pack(side="left", fill="y", padx=5)
         
-        time_title = ctk.CTkLabel(time_frame, text="Time Filter", font=("Roboto Medium", 16))
-        time_title.pack(anchor="w", padx=15, pady=(10, 5))
+        # Right side - Time Filter
+        time_subframe = ctk.CTkFrame(sort_time_container, fg_color="transparent")
+        time_subframe.pack(side="left", fill="both", expand=True, padx=10, pady=5)
+        
+        time_title = ctk.CTkLabel(time_subframe, text="Time Filter", font=("Roboto Medium", 14))
+        time_title.pack(anchor="w", pady=(0, 5))
         
         self.time_filter_check = ctk.CTkCheckBox(
-            time_frame,
+            time_subframe,
             text="Filter by time of day",
             variable=self.time_filter_enabled,
             command=self.save_settings
         )
-        self.time_filter_check.pack(anchor="w", padx=15, pady=(0, 5))
+        self.time_filter_check.pack(anchor="w", pady=(0, 5))
         
-        time_row = ctk.CTkFrame(time_frame, fg_color="transparent")
-        time_row.pack(fill="x", padx=15, pady=(0, 10))
+        # Start time row
+        start_row = ctk.CTkFrame(time_subframe, fg_color="transparent")
+        start_row.pack(fill="x", pady=(0, 5))
         
-        ctk.CTkLabel(time_row, text="From:").pack(side="left")
+        ctk.CTkLabel(start_row, text="From:").pack(side="left")
         self.start_time_entry = ctk.CTkEntry(
-            time_row,
+            start_row,
             textvariable=self.start_time,
-            width=70
+            width=60
         )
         self.start_time_entry.pack(side="left", padx=5)
         
-        ctk.CTkLabel(time_row, text="to:").pack(side="left")
+        # End time row
+        end_row = ctk.CTkFrame(time_subframe, fg_color="transparent")
+        end_row.pack(fill="x", pady=(0, 0))
+        
+        ctk.CTkLabel(end_row, text="To:").pack(side="left")
         self.end_time_entry = ctk.CTkEntry(
-            time_row,
+            end_row,
             textvariable=self.end_time,
-            width=70
+            width=60
         )
         self.end_time_entry.pack(side="left", padx=5)
         
         # Buttons
         button_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        button_frame.pack(fill="x", pady=20)
+        button_frame.pack(fill="x", pady=(0, 5))
         
         self.create_button = ctk.CTkButton(
             button_frame,

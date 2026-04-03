@@ -1,9 +1,25 @@
-# Timelapse Maker
+# timelapsrr
 
 A modern GUI application for creating timelapse videos from image sequences. Built with Python and CustomTkinter, featuring hardware acceleration, corrupt file handling, and configurable image sorting.
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
+
+## 🖼️ Screenshot
+
+![timelapsrr GUI](example_gui.png)
+
+## 🚀 Quick Start
+
+**Easiest way to run (requires Python 3.8+ and FFmpeg):**
+
+- **macOS/Linux:** Double-click `launch.sh` or run `./launch.sh`
+- **Windows:** Double-click `launch.bat`
+
+The launcher will automatically:
+1. Check for required dependencies (Python, FFmpeg, pip)
+2. Install Python packages if needed
+3. Launch the application
 
 ## ✨ Features
 
@@ -146,10 +162,12 @@ The CRF (Constant Rate Factor) controls video quality:
 ## 📂 Project Structure
 
 ```
-timelapsemaker/
+timelapsrr/
 ├── main.py              # Main application (CustomTkinter GUI)
 ├── requirements.txt      # Python dependencies
 ├── .gitignore           # Git ignore rules
+├── launch.sh            # macOS/Linux launcher script
+├── launch.bat           # Windows launcher script
 └── README.md            # This file
 ```
 
@@ -210,7 +228,7 @@ See `requirements.txt` for version requirements.
 ## 📝 Example Output
 
 ```
-[14:30:45] Timelapse Maker ready.
+[14:30:45] timelapsrr ready.
 [14:30:45] Select an input folder to begin.
 [14:31:02] ✓ Hardware acceleration available: NVIDIA NVENC
 [14:31:12] Selected input folder: /home/user/snapshots
