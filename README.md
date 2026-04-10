@@ -30,9 +30,10 @@ The launcher will automatically:
 - 🎨 **Modern UI** - Clean, intuitive CustomTkinter GUI
 - 📊 **Resolution Presets** - Choose from Actual, 4K, 1440p, 1080p, 720p, or 480p
 - 🎚️ **Quality Control** - Adjustable CRF (Constant Rate Factor) for video quality
-- ⚡ **Adjustable Speed** - Control timelapse speeds (1-120 FPS)
+- ⚡ **Adjustable Speed** - Control timelapse speeds (1-240 FPS)
 - 💾 **Settings Persistence** - Automatically saves your preferences
 - 📝 **Detailed Logging** - Real-time status reporting
+- 📂 **Recursive Search** - Optionally search for images in subfolders
 
 ## 📋 Requirements
 
@@ -80,12 +81,13 @@ python main.py
 1. **Select Input Folder** - Click "Browse" to choose a folder containing your images
 2. **Choose Output File** - Select where to save the timelapse (auto-suggested based on input folder)
 3. **Adjust Settings:**
-   - **FPS**: Higher values create faster timelapses (1-120 FPS)
+   - **FPS**: Higher values create faster timelapses (1-240 FPS)
    - **Resolution**: Resize output or keep original size
    - **Quality**: Lower CRF values produce better quality but larger files (0-51)
    - **Hardware Acceleration**: Use GPU encoding for faster processing (auto-detected)
    - **Sort Method**: Choose how images should be ordered
    - **Time Filter**: Optional filter by time of day
+   - **Recursive Search**: Enable to search for images in subfolders
 4. **Create Timelapse** - Click the green "▶ Create Timelapse" button
 5. **Monitor Progress** - Watch the status log for real-time updates
 6. **Cancel Anytime** - Click "✕ Cancel" to stop processing
@@ -141,6 +143,15 @@ Filter images by the time of day they were captured:
 - Uses EXIF data when available, falls back to file modification time
 - Images without time data are included by default
 
+### Recursive Search
+
+Enable the "Search for images in subfolders" checkbox to scan all subdirectories within your input folder:
+
+- Useful for organizing images in nested directory structures
+- All supported image formats in subfolders will be included
+- Combines with all other features (sorting, time filtering, etc.)
+- May increase processing time for large directory trees
+
 ### Resolution Presets
 
 - **Actual** - Keep original image dimensions
@@ -175,8 +186,8 @@ timelapsrr/
 
 Your preferences are automatically saved to:
 
-- **macOS/Linux**: `~/.timelapse_maker_settings.json`
-- **Windows**: `C:\Users\YourUsername\.timelapse_maker_settings.json`
+- **macOS/Linux**: `~/.timelapsrr_settings.json`
+- **Windows**: `C:\Users\YourUsername\.timelapsrr_settings.json`
 
 This file stores:
 - Last used folders
@@ -184,6 +195,7 @@ This file stores:
 - Hardware acceleration choice
 - Sort method preference
 - Time filter settings
+- Recursive search preference
 
 ## 🎯 Use Cases
 
@@ -192,6 +204,9 @@ Create timelapses from periodic security camera snapshots, filtering to show onl
 
 ### Photography Projects
 Compile sequences of photos into smooth timelapse videos with customizable speed and quality.
+
+### Nested Directory Structures
+Use recursive search to create timelapses from images organized across multiple subdirectories.
 
 ## 🐛 Troubleshooting
 
@@ -205,6 +220,7 @@ ffmpeg -version
 - Check that your input folder contains supported image formats
 - Verify images have the correct file extensions (.jpg, .jpeg, .png, .bmp, .tiff, .tif, .webp)
 - Check the status log for details on which files were skipped
+- If using recursive search, ensure subfolders contain images
 
 ### Import errors
 Reinstall Python dependencies:

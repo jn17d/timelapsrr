@@ -24,25 +24,9 @@ if errorlevel 1 (
 for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYTHON_VERSION=%%i
 echo [OK] Python %PYTHON_VERSION% found
 
-REM Check if FFmpeg is installed
-ffmpeg -version >nul 2>&1
-if errorlevel 1 (
-    echo.
-    echo [X] Error: FFmpeg is not installed!
-    echo.
-    echo To install FFmpeg:
-    echo   1. Download from https://ffmpeg.org/download.html
-    echo   2. Extract to a folder (e.g., C:\ffmpeg)
-    echo   3. Add C:\ffmpeg\bin to your System PATH
-    echo.
-    echo Or use Chocolatey:
-    echo   choco install ffmpeg
-    echo.
-    pause
-    exit /b 1
-)
-
-echo [OK] FFmpeg found
+REM Note: FFmpeg check skipped - will be detected by the application when needed
+REM Make sure FFmpeg is installed and accessible before using video features
+echo [INFO] FFmpeg check skipped - will be detected by application
 
 REM Check if pip is installed
 pip --version >nul 2>&1

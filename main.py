@@ -38,17 +38,11 @@ RESOLUTION_PRESETS = {
     '480p': (854, 480),
 }
 
-# Hardware acceleration presets
-HW_ACCEL_PRESETS = {
-    'None': (None, None),
-    'NVIDIA NVENC': ('h264_nvenc', 'cuda'),
-    'Intel Quick Sync': ('h264_qsv', 'qsv'),
-    'AMD VCE': ('h264_amf', 'd3d11va' if platform.system() == 'Windows' else 'vaapi'),
-    'VideoToolbox (macOS)': ('h264_videotoolbox', None),
-}
+# File validation constants
+MIN_VALID_FILE_SIZE = 1024
 
 
-def detect_available_encoders() -> Dict[str, Tuple]:
+def detect_available_encoders() -> Dict[str, Tuple[Optional[str], Optional[str]]]:
     """
     Detect available hardware encoders using ffmpeg -encoders.
     Returns a dictionary of available hardware acceleration options.
@@ -96,11 +90,19 @@ def detect_available_encoders() -> Dict[str, Tuple]:
 
 class TimelapseGUI(ctk.CTk):
     def __init__(self):
-        super().__init__()
-        
-        # Window setup
+        # Set window title first
+        ctk.CTk.__init__(self)
         self.title("timelapsrr")
         self.geometry("900x800")
+        
+        # Set window icon
+        try:
+            ico_path = Path(__file__).parent / 'timelapsrr.ico'
+            if ico_path.exists():
+                self.iconbitmap(str(ico_path))
+        except OSError:
+            # Fail silently if icon can't be loaded
+            pass
         
         # Set theme
         ctk.set_appearance_mode("dark")
@@ -117,6 +119,7 @@ class TimelapseGUI(ctk.CTk):
         self.start_time = ctk.StringVar(value='06:00')
         self.end_time = ctk.StringVar(value='18:00')
         self.sort_method = ctk.StringVar(value='exif_modified')
+        self.recursive_search = ctk.BooleanVar(value=False)
         
         self.is_processing = False
         self.processing_thread = None
@@ -124,8 +127,8 @@ class TimelapseGUI(ctk.CTk):
         # Detect available hardware encoders
         self.available_encoders = detect_available_encoders()
         
-        # Settings file for persistence
-        self.settings_file = Path.home() / '.timelapse_maker_settings.json'
+        # Settings file for persistence - updated to match app name
+        self.settings_file = Path.home() / '.timelapsrr_settings.json'
         self.load_settings()
         
         # Validate that saved hardware accel is still available
@@ -134,6 +137,10 @@ class TimelapseGUI(ctk.CTk):
         
         # Create UI
         self.create_ui()
+        
+        # Update FPS entry with loaded settings value
+        self.fps_entry.delete(0, "end")
+        self.fps_entry.insert(0, str(self.fps.get()))
         
         # Log hardware detection results
         available_hw = [name for name in self.available_encoders.keys() if name != 'None']
@@ -159,10 +166,10 @@ class TimelapseGUI(ctk.CTk):
         
         # Input folder section
         input_label = ctk.CTkLabel(self.main_frame, text="Input Folder", font=("Roboto Medium", 14))
-        input_label.pack(anchor="w", pady=(10, 5))
+        input_label.pack(anchor="w", pady=(5, 3))
         
         input_row = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        input_row.pack(fill="x", pady=5)
+        input_row.pack(fill="x", pady=3)
         
         self.input_entry = ctk.CTkEntry(input_row, textvariable=self.input_folder, placeholder_text="Select input folder...")
         self.input_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
@@ -174,12 +181,21 @@ class TimelapseGUI(ctk.CTk):
             width=80
         ).pack(side="left")
         
+        # Recursive search checkbox
+        self.recursive_search_check = ctk.CTkCheckBox(
+            self.main_frame,
+            text="Search for images in subfolders",
+            variable=self.recursive_search,
+            command=self.save_settings
+        )
+        self.recursive_search_check.pack(anchor="w", pady=(3, 5))
+        
         # Output file section
         output_label = ctk.CTkLabel(self.main_frame, text="Output File", font=("Roboto Medium", 14))
-        output_label.pack(anchor="w", pady=(10, 5))
+        output_label.pack(anchor="w", pady=(5, 3))
         
         output_row = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        output_row.pack(fill="x", pady=5)
+        output_row.pack(fill="x", pady=3)
         
         self.output_entry = ctk.CTkEntry(output_row, textvariable=self.output_file, placeholder_text="Select output file...")
         self.output_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
@@ -193,32 +209,41 @@ class TimelapseGUI(ctk.CTk):
         
         # FPS section
         fps_label = ctk.CTkLabel(self.main_frame, text="FPS", font=("Roboto Medium", 14))
-        fps_label.pack(anchor="w", pady=(15, 5))
+        fps_label.pack(anchor="w", pady=(8, 3))
         
         fps_row = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        fps_row.pack(fill="x", pady=5)
+        fps_row.pack(fill="x", pady=3)
         
         self.fps_slider = ctk.CTkSlider(
             fps_row,
             from_=1,
-            to=120,
+            to=240,
             variable=self.fps,
-            command=self.update_fps_label
+            command=self.update_fps_from_slider
         )
         self.fps_slider.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
-        self.fps_label_widget = ctk.CTkLabel(fps_row, text="30 FPS", width=60)
-        self.fps_label_widget.pack(side="left")
+        self.fps_entry = ctk.CTkEntry(
+            fps_row,
+            width=80,
+            placeholder_text="30"
+        )
+        self.fps_entry.pack(side="left", padx=(0, 5))
+        self.fps_entry.bind('<FocusOut>', self.update_fps_from_entry)
+        self.fps_entry.bind('<Return>', self.update_fps_from_entry)
         
-        fps_hint = ctk.CTkLabel(fps_row, text="(Higher = faster)", font=("Roboto", 10), text_color="gray")
-        fps_hint.pack(side="left", padx=(5, 0))
+        # Initialize FPS entry with current value
+        self.fps_entry.insert(0, str(self.fps.get()))
+        
+        fps_hint = ctk.CTkLabel(fps_row, text="(1-240 FPS)", font=("Roboto", 10), text_color="gray")
+        fps_hint.pack(side="left")
         
         # Resolution section
         resolution_label = ctk.CTkLabel(self.main_frame, text="Resolution", font=("Roboto Medium", 14))
-        resolution_label.pack(anchor="w", pady=(15, 5))
+        resolution_label.pack(anchor="w", pady=(8, 3))
         
         resolution_row = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        resolution_row.pack(fill="x", pady=5)
+        resolution_row.pack(fill="x", pady=3)
         
         self.resolution_combo = ctk.CTkComboBox(
             resolution_row,
@@ -234,10 +259,10 @@ class TimelapseGUI(ctk.CTk):
         
         # Quality section
         quality_label = ctk.CTkLabel(self.main_frame, text="Quality (CRF)", font=("Roboto Medium", 14))
-        quality_label.pack(anchor="w", pady=(15, 5))
+        quality_label.pack(anchor="w", pady=(8, 3))
         
         quality_row = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        quality_row.pack(fill="x", pady=5)
+        quality_row.pack(fill="x", pady=3)
         
         self.crf_slider = ctk.CTkSlider(
             quality_row,
@@ -256,10 +281,10 @@ class TimelapseGUI(ctk.CTk):
         
         # Hardware acceleration section
         hw_label = ctk.CTkLabel(self.main_frame, text="Hardware Acceleration", font=("Roboto Medium", 14))
-        hw_label.pack(anchor="w", pady=(15, 5))
+        hw_label.pack(anchor="w", pady=(8, 3))
         
         hw_row = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        hw_row.pack(fill="x", pady=5)
+        hw_row.pack(fill="x", pady=3)
         
         self.hw_combo = ctk.CTkComboBox(
             hw_row,
@@ -275,11 +300,11 @@ class TimelapseGUI(ctk.CTk):
         
         # Combined Sort Method and Time Filter section (side-by-side)
         sort_time_container = ctk.CTkFrame(self.main_frame)
-        sort_time_container.pack(fill="x", pady=(10, 0))
+        sort_time_container.pack(fill="x", pady=(5, 0))
         
         # Left side - Sort Method
         sort_subframe = ctk.CTkFrame(sort_time_container, fg_color="transparent")
-        sort_subframe.pack(side="left", fill="both", expand=True, padx=10, pady=5)
+        sort_subframe.pack(side="left", fill="both", expand=True, padx=8, pady=3)
         
         sort_label = ctk.CTkLabel(sort_subframe, text="Sort Method", font=("Roboto Medium", 14))
         sort_label.pack(anchor="w", pady=(0, 5))
@@ -308,10 +333,10 @@ class TimelapseGUI(ctk.CTk):
         
         # Right side - Time Filter
         time_subframe = ctk.CTkFrame(sort_time_container, fg_color="transparent")
-        time_subframe.pack(side="left", fill="both", expand=True, padx=10, pady=5)
+        time_subframe.pack(side="left", fill="both", expand=True, padx=8, pady=3)
         
         time_title = ctk.CTkLabel(time_subframe, text="Time Filter", font=("Roboto Medium", 14))
-        time_title.pack(anchor="w", pady=(0, 5))
+        time_title.pack(anchor="w", pady=(0, 3))
         
         self.time_filter_check = ctk.CTkCheckBox(
             time_subframe,
@@ -319,11 +344,11 @@ class TimelapseGUI(ctk.CTk):
             variable=self.time_filter_enabled,
             command=self.save_settings
         )
-        self.time_filter_check.pack(anchor="w", pady=(0, 5))
+        self.time_filter_check.pack(anchor="w", pady=(0, 3))
         
         # Start time row
         start_row = ctk.CTkFrame(time_subframe, fg_color="transparent")
-        start_row.pack(fill="x", pady=(0, 5))
+        start_row.pack(fill="x", pady=(0, 3))
         
         ctk.CTkLabel(start_row, text="From:").pack(side="left")
         self.start_time_entry = ctk.CTkEntry(
@@ -347,7 +372,7 @@ class TimelapseGUI(ctk.CTk):
         
         # Buttons
         button_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        button_frame.pack(fill="x", pady=(0, 5))
+        button_frame.pack(fill="x", pady=(5, 3))
         
         self.create_button = ctk.CTkButton(
             button_frame,
@@ -387,10 +412,30 @@ class TimelapseGUI(ctk.CTk):
         self.status_log.tag_config('warning', foreground='#ffd43b')
         self.status_log.tag_config('info', foreground='#4dabf7')
     
-    def update_fps_label(self, value):
-        """Update FPS label"""
-        self.fps_label_widget.configure(text=f"{int(float(value))} FPS")
+    def update_fps_from_slider(self, value):
+        """Update FPS entry when slider moves"""
+        fps_value = int(float(value))
+        self.fps_entry.delete(0, "end")
+        self.fps_entry.insert(0, str(fps_value))
         self.save_settings()
+    
+    def update_fps_from_entry(self, event=None):
+        """Update FPS slider when entry is changed"""
+        try:
+            value = self.fps_entry.get()
+            if value:
+                fps_value = int(value)
+                # Clamp to valid range (1-240)
+                fps_value = max(1, min(240, fps_value))
+                self.fps.set(fps_value)
+                # Update entry with clamped value
+                self.fps_entry.delete(0, "end")
+                self.fps_entry.insert(0, str(fps_value))
+                self.save_settings()
+        except ValueError:
+            # If invalid, reset to current slider value
+            self.fps_entry.delete(0, "end")
+            self.fps_entry.insert(0, str(self.fps.get()))
     
     def update_crf_label(self, value):
         """Update CRF label"""
@@ -455,7 +500,7 @@ class TimelapseGUI(ctk.CTk):
                         if exif_cache is not None:
                             exif_cache[str(image_path)] = dt
                         return dt
-        except Exception:
+        except (OSError, IOError, ValueError):
             pass
         return None
     
@@ -471,7 +516,7 @@ class TimelapseGUI(ctk.CTk):
             try:
                 file_dt = datetime.fromtimestamp(image_path.stat().st_mtime)
                 image_time = file_dt.time()
-            except:
+            except (OSError, IOError):
                 return True  # If we can't get any time, include the image
         
         # Handle time ranges that span midnight
@@ -481,13 +526,20 @@ class TimelapseGUI(ctk.CTk):
             # Range spans midnight (e.g., 22:00 to 06:00)
             return image_time >= start_time or image_time <= end_time
     
-    def validate_and_sort_images(self, input_folder: Path) -> tuple:
+    def validate_and_sort_images(self, input_folder: Path) -> Tuple[List[Path], List[Path]]:
         """Validate and sort images with optional time filtering."""
         image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp'}
         
+        # Use recursive search if enabled
+        if self.recursive_search.get():
+            glob_pattern = '**/*'
+            self.log_status("Recursive search enabled: scanning all subdirectories", 'info')
+        else:
+            glob_pattern = '*'
+        
         # Consolidated file globbing - single directory scan instead of 12
         all_files = [
-            f for f in input_folder.glob('*')
+            f for f in input_folder.glob(glob_pattern)
             if f.suffix.lower() in image_extensions
         ]
         
@@ -513,7 +565,7 @@ class TimelapseGUI(ctk.CTk):
                 end_time_obj = time(int(parts[0]), int(parts[1]))
                 
                 self.log_status(f"Time filter enabled: {start_time_obj.strftime('%H:%M')} to {end_time_obj.strftime('%H:%M')}")
-            except Exception as e:
+            except (ValueError, IndexError):
                 self.log_status(f"Warning: Invalid time format, using default 06:00-18:00", 'warning')
                 start_time_obj = time(6, 0)
                 end_time_obj = time(18, 0)
@@ -527,11 +579,7 @@ class TimelapseGUI(ctk.CTk):
         for image_path in sorted(all_files):
             # Fast pre-filter: Skip files that are too small
             file_size = image_path.stat().st_size
-            if file_size == 0:
-                invalid_images.append(image_path)
-                processed += 1
-                continue
-            if file_size < 1024:
+            if file_size < MIN_VALID_FILE_SIZE:
                 invalid_images.append(image_path)
                 processed += 1
                 continue
@@ -551,7 +599,7 @@ class TimelapseGUI(ctk.CTk):
                 with Image.open(image_path) as img:
                     img.load()
                 valid_images.append(image_path)
-            except (UnidentifiedImageError, IOError, Exception):
+            except (UnidentifiedImageError, IOError, OSError):
                 invalid_images.append(image_path)
                 self.log_status(f"  ⚠ Skipping corrupt file: {image_path.name}", 'warning')
             
@@ -576,7 +624,7 @@ class TimelapseGUI(ctk.CTk):
                     try:
                         modified_time = datetime.fromtimestamp(path.stat().st_mtime)
                         return (1, modified_time)
-                    except:
+                    except (OSError, IOError):
                         return (2, path.name)
         
         elif sort_method == 'exif_created':
@@ -589,7 +637,7 @@ class TimelapseGUI(ctk.CTk):
                     try:
                         created_time = datetime.fromtimestamp(path.stat().st_ctime)
                         return (1, created_time)
-                    except:
+                    except (OSError, IOError):
                         return (2, path.name)
         
         elif sort_method == 'Modified Date Only':
@@ -598,7 +646,7 @@ class TimelapseGUI(ctk.CTk):
                 try:
                     modified_time = datetime.fromtimestamp(path.stat().st_mtime)
                     return modified_time
-                except:
+                except (OSError, IOError):
                     return path.name
         
         elif sort_method == 'Created Date Only':
@@ -607,7 +655,7 @@ class TimelapseGUI(ctk.CTk):
                 try:
                     created_time = datetime.fromtimestamp(path.stat().st_ctime)
                     return created_time
-                except:
+                except (OSError, IOError):
                     return path.name
         
         else:  # 'Filename Only'
@@ -617,7 +665,7 @@ class TimelapseGUI(ctk.CTk):
         
         valid_images.sort(key=get_sort_key)
         
-        # Log which sort method was used
+        # Log which sort method was used (use single dict definition)
         sort_names = {
             'exif_modified': 'EXIF → Modified → Filename',
             'exif_created': 'EXIF → Created → Filename',
@@ -834,7 +882,7 @@ class TimelapseGUI(ctk.CTk):
                 minute = 59
             
             self.start_time.set(f"{hour:02d}:{minute:02d}")
-        except:
+        except (ValueError, IndexError):
             self.start_time.set("06:00")
         
         try:
@@ -854,12 +902,12 @@ class TimelapseGUI(ctk.CTk):
                 minute = 59
             
             self.end_time.set(f"{hour:02d}:{minute:02d}")
-        except:
+        except (ValueError, IndexError):
             self.end_time.set("18:00")
         
         self.save_settings()
     
-    def save_settings(self, value=None):
+    def save_settings(self):
         """Save current settings to file."""
         try:
             settings = {
@@ -871,13 +919,15 @@ class TimelapseGUI(ctk.CTk):
                 'start_time': self.start_time.get(),
                 'end_time': self.end_time.get(),
                 'sort_method': self.sort_method.get(),
+                'recursive_search': self.recursive_search.get(),
                 'last_input_folder': self.input_folder.get(),
                 'last_output_file': self.output_file.get(),
             }
             with open(self.settings_file, 'w') as f:
                 json.dump(settings, f)
-        except Exception as e:
-            pass  # Silently fail if saving doesn't work
+        except (OSError, IOError, TypeError) as e:
+            # Log error if saving fails
+            self.log_status(f"Warning: Failed to save settings: {e}", 'warning')
     
     def load_settings(self):
         """Load settings from file."""
@@ -893,10 +943,12 @@ class TimelapseGUI(ctk.CTk):
                     self.start_time.set(settings.get('start_time', '06:00'))
                     self.end_time.set(settings.get('end_time', '18:00'))
                     self.sort_method.set(settings.get('sort_method', 'exif_modified'))
+                    self.recursive_search.set(settings.get('recursive_search', False))
                     self.input_folder.set(settings.get('last_input_folder', ''))
                     self.output_file.set(settings.get('last_output_file', ''))
-        except Exception as e:
-            pass  # Silently fail if loading doesn't work
+        except (OSError, IOError, json.JSONDecodeError) as e:
+            # Log error if loading fails
+            self.log_status(f"Warning: Failed to load settings: {e}", 'warning')
 
 
 def main():
